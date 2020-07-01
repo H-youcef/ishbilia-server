@@ -4,7 +4,7 @@ dotenv.config();
 const PORT = process.env.PORT;
 
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: PORT | 8080 });
+const wss = new WebSocket.Server({ port: 8080 });
 
 const Connection = require("./Connection.js");
 
