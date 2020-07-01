@@ -1,0 +1,196 @@
+
+///TODO:
+/// --* When a Server connects, it gets notified with all existing Couriers.
+/// --* When a Courier connects, all connected Servers gets notified with the new Couriers' s Data.
+/// --* When a Courier disconnects all connected Servers gets notified.
+// --* A Server can ask for a list of connected Couriers.
+/// --* Use the ping-pong mechanism to check the connection status of the servers and/or couriers.
+/// --* The couriers MUST be aware of the existence or non existence of a Server.
+/// * A Server can send data to any Courier.
+/// * Add support for 2 types of Servers (DB-SERVER, OBSERVER-SERVER). so that data requests from couriers are to be forwarded to one of the DB-SERVER(s).
+/**
+ * the info json object contains (at least):
+ * 	- id : the id of the courier in the Server's database.
+ * 	- name: the name of the courier (can be a Username or email). 
+ * 		      Note: the courier is identified by its id not by the name.
+ * 	- position{latitude, longitude}
+ * 	- status: the connection status possible values are ["CONNECTED", "DISCONNECTED", HIDING]
+ */
+
+const couriersConns = [];
+const serversConns = [];
+
+class Connection{
+
+	constructor(ws){
+		
+		this.ws = ws;
+		this.id = 0;
+		this.type = '';
+		this.info = {};
+
+		this.pingInterval = setInterval( () => this.ping(), process.env['PING_INTERVAL'] | 10000);
+
+
+		// Life check of the webSocket (ws)
+		this.ws.isAlive = true;
+		this.ws.on('pong', ()=>{this.ws.isAlive = true;});
+
+
+		//If a client does not authenticate within 1sec, the socket gets closed.
+		this.authenticationTimeout = setTimeout(()=>{
+			console.log("Closing connection for not authenticating in time")
+			this.ws.terminate();
+
+		},process.env['AUTENTICATION_TIMEOUT'] | 1000);
+
+
+		this.ws.on('message', (message)=>{
+			this.handleMessage(message);
+		});
+
+		this.ws.on('close',() => {
+			this.handleClose();
+		});
+		
+	}
+
+	send(toStringify){
+		this.ws.send(JSON.stringify(toStringify));
+	}
+	sendCouriersInfos(){
+		for(let i = 0; i < couriersConns.length; ++i){
+			this.send(couriersConns[i].info);
+		}
+	}
+
+	notifyServers(){
+		this.sendToAllServers(this.info);
+	}
+
+	sendToAllServers(jsonMessage){
+		for(let i = 0; i < serversConns.length; ++i){
+			serversConns[i].send(jsonMessage);
+		}
+	}
+	sendToAllCouriers(jsonMessage){
+		for(let i = 0; i < couriersConns.length; ++i){
+			couriersConns[i].send(jsonMessage);
+		}
+	}
+
+ping() {
+		const sendPing = (con) => {
+			if (con.ws.isAlive === false) {
+				console.log("Closing a connection for not responding to a Ping");
+				return con.ws.terminate();
+			}
+			con.ws.isAlive = false;
+			con.ws.ping(()=>{});
+		};
+
+		serversConns.forEach(sendPing);
+		couriersConns.forEach(sendPing);
+	}
+
+	handleClose(){
+	//deletes this Connection object from connections array
+		if(this.type === 'SERVER'){
+			console.log("server deleted id: ",this.id);
+			for(let i = 0; i < serversConns.length; ++i){
+				if(serversConns[i].id === this.id){
+					serversConns.splice(i, 1);
+				}
+			}
+			if(serversConns.length === 0){
+				//Notify couriers that NO Server is available.
+				this.sendToAllCouriers({type:"notification",value:"server-down"});
+			}
+		}else if(this.type === 'COURIER'){
+			console.log("Courier deleted id: ",this.id);
+			this.info['status'] = "disconnected";
+			this.notifyServers();
+			for(let i = 0; i < couriersConns.length; ++i){
+				if(couriersConns[i].id === this.id){
+					couriersConns.splice(i, 1);
+				}
+			}
+		}
+		clearInterval(this.pingInterval);
+		console.log("Connection closed");
+	}
+
+	onSucessfullAuthentication(){
+		clearTimeout(this.authenticationTimeout);
+		this.send({type:"reply", cmd:"auth", value: "success"});
+	}
+
+	handleMessage(message){
+		const jsonMessage = JSON.parse(message);
+		if(this.id === 0){
+			if(jsonMessage['api_key'] === process.env['SERVER_API_KEY']){
+				serversConns.push(this);
+				this.id = serversConns.length;
+				this.type = 'SERVER';
+				this.onSucessfullAuthentication();
+				this.sendCouriersInfos();
+				
+				console.log("new server id: ", this.id);
+				
+				if(serversConns.length === 1){
+					//notify couriers that a Server is available
+					this.sendToAllCouriers({type:"notification",value:"server-up"});
+				}
+
+			}else if(jsonMessage['api_key'] === process.env['COURIER_API_KEY']){
+				couriersConns.push(this);
+				this.id = couriersConns.length;
+				this.type = 'COURIER';
+				this.info['status'] = "connected";
+				Object.assign(this.info, jsonMessage['info']);
+
+				this.onSucessfullAuthentication();
+				this.notifyServers();
+
+				console.log("new courier id: ", this.id);
+				if(serversConns.length === 0){
+					this.send({type:"notification",value:"server-down"});
+				}else{
+					this.send({type:"notification",value:"server-up"});
+				}
+
+				
+			}else{
+				this.send({type:"reply", cmd:"auth", value: "failed", 
+									reason: "Wrong api_key"});
+				this.ws.terminate();
+				console.log("The new connection failed due to wrong api_key");
+			}
+
+		}else{
+			if(this.type === 'SERVER'){
+				this.handleServerMessage(jsonMessage);
+
+			}else if(this.type === 'COURIER'){
+				this.handleCourierMessage(jsonMessage);
+			}
+		}
+	}
+
+	handleServerMessage(jsonMessage){
+		if(jsonMessage['type'] === 'request'){
+			if(jsonMessage['value'] === 'couriers-list'){
+				this.sendCouriersInfos();
+			}
+		}
+	}
+
+	handleCourierMessage(jsonMessage){
+		//If the message came from a Courier then 
+		// propagate it to all servers.		
+		Object.assign(this.info, jsonMessage);
+		this.notifyServers();
+	}
+}
+
+module.exports = Connection;

@@ -1,0 +1,32 @@
+{
+  "name": "ishbilia-server",
+  "version": "1.0.0",
+  "description": "Data forwarding server for the delivery app.",
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "http": "^0.0.1-security",
+    "ws": "^7.3.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/H-youcef/ishbilia-server.git"
+  },
+  "keywords": [
+    "Delivery",
+    "forwarding",
+    "web",
+    "service"
+  ],
+  "author": "Youcef",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/H-youcef/ishbilia-server/issues"
+  },
+  "homepage": "https://github.com/H-youcef/ishbilia-server#readme"
+}
