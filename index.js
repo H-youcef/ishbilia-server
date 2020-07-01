@@ -1,10 +1,8 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const PORT = process.env.PRT;
-
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: PORT || 3000 });
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
 const Connection = require("./Connection.js");
 
