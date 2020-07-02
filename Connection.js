@@ -28,13 +28,14 @@ class Connection{
 		this.id = 0;
 		this.type = '';
 		this.info = {};
+		this.ping_fails = 0;
 
-		this.pingInterval = setInterval( () => this.ping(), process.env['PING_INTERVAL'] | 10000);
+		this.pingInterval = setInterval( () => this.ping(), process.env['PING_INTERVAL'] || 10000);
 
 
 		// Life check of the webSocket (ws)
 		this.ws.isAlive = true;
-		this.ws.on('pong', ()=>{this.ws.isAlive = true;});
+		this.ws.on('pong', () => this.handlePong());
 
 
 		//If a client does not authenticate within 1sec, the socket gets closed.
@@ -42,7 +43,7 @@ class Connection{
 			console.log("Closing connection for not authenticating in time")
 			this.ws.terminate();
 
-		},process.env['AUTENTICATION_TIMEOUT'] | 1000);
+		},process.env['AUTENTICATION_TIMEOUT'] || 1000);
 
 
 		this.ws.on('message', (message)=>{
@@ -82,8 +83,12 @@ class Connection{
 ping() {
 		const sendPing = (con) => {
 			if (con.ws.isAlive === false) {
-				console.log("Closing a connection for not responding to a Ping");
-				return con.ws.terminate();
+				console.log("Ping failed");
+				this.ping_fails += 1;
+				if(this.ping_fails >= process.env['PING_MAX_FAILS']){
+					console.log(`Closing a connection for not responding to a Ping after ${this.ping_fails} fails.`);
+					return con.ws.terminate();
+				}
 			}
 			con.ws.isAlive = false;
 			con.ws.ping(()=>{});
@@ -91,6 +96,11 @@ ping() {
 
 		serversConns.forEach(sendPing);
 		couriersConns.forEach(sendPing);
+	}
+
+	handlePong(){
+		this.ws.isAlive = true;
+		this.ping_fails = 0;
 	}
 
 	handleClose(){
