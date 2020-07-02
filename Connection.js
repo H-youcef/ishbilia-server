@@ -19,6 +19,7 @@
 
 const couriersConns = [];
 const serversConns = [];
+const PING_MAX_FAILS = process.env['PING_MAX_FAILS'] || 3
 
 class Connection{
 
@@ -31,7 +32,6 @@ class Connection{
 		this.ping_fails = 0;
 
 		this.pingInterval = setInterval( () => this.ping(), process.env['PING_INTERVAL'] || 10000);
-
 
 		// Life check of the webSocket (ws)
 		this.ws.isAlive = true;
@@ -85,7 +85,7 @@ ping() {
 			if (con.ws.isAlive === false) {
 				console.log("Ping failed");
 				this.ping_fails += 1;
-				if(this.ping_fails >= process.env['PING_MAX_FAILS']){
+				if(this.ping_fails >= PING_MAX_FAILS){
 					console.log(`Closing a connection for not responding to a Ping after ${this.ping_fails} fails.`);
 					return con.ws.terminate();
 				}
