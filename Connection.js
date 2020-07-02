@@ -136,7 +136,24 @@ ping() {
 	}
 
 	handleMessage(message){
-		const jsonMessage = JSON.parse(message);
+		let jsonMessage = {};
+		try {
+			jsonMessage = JSON.parse(message);
+		}catch (e) {
+			if(this.id !== 0){
+				//if this is a Registred connection either (SERVER or COURIER)
+				// reply with error message.
+				this.send({type:"error", value: "bad-data"});
+			}else{
+				// if not a Registred connection, terminate the connection.
+				this.ws.terminate();
+			}
+			return;
+		}
+		
+		//Since we received a message and parsed well, the we are sure that the socket is alive.
+		this.ws.isAlive = true;
+
 		if(this.id === 0){
 			if(jsonMessage['api_key'] === process.env['SERVER_API_KEY']){
 				serversConns.push(this);
@@ -149,7 +166,7 @@ ping() {
 				
 				if(serversConns.length === 1){
 					//notify couriers that a Server is available
-					this.sendToAllCouriers({type:"notification",value:"server-up"});
+					this.sendToAllCouriers({type:"notification", value:"server-up"});
 				}
 
 			}else if(jsonMessage['api_key'] === process.env['COURIER_API_KEY']){
