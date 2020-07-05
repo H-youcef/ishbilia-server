@@ -191,6 +191,7 @@ ping() {
 				this.send({type:"reply", cmd:"auth", value: "failed", 
 									reason: "Wrong api_key"});
 				this.ws.terminate();
+				clearTimeout(this.authenticationTimeout);
 				console.log("The new connection failed due to wrong api_key");
 			}
 
