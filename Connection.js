@@ -8,14 +8,7 @@
 /// --* The couriers MUST be aware of the existence or non existence of a Server.
 /// * A Server can send data to any Courier.
 /// * Add support for 2 types of Servers (DB-SERVER, OBSERVER-SERVER). so that data requests from couriers are to be forwarded to one of the DB-SERVER(s).
-/**
- * the info json object contains (at least):
- * 	- id : the id of the courier in the Server's database.
- * 	- name: the name of the courier (can be a Username or email). 
- * 		      Note: the courier is identified by its id not by the name.
- * 	- position{latitude, longitude}
- * 	- status: the connection status possible values are ["CONNECTED", "DISCONNECTED", HIDING]
- */
+
 
 const couriersConns = [];
 const serversConns = [];
