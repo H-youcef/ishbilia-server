@@ -4,7 +4,9 @@ The protocol is based on Json messages.
 
 ***
 **NOTE:**
-All fields in the Json messages are in lowercase.
+All fields in the Json messages are: 
+- in lowercase.
+- Strings (text).
 ***
 
 ##Messages sent by the _local server_:
