@@ -84,9 +84,11 @@ and registering the server in the _Middleware_ connections.
   status   : ['disconnected'|'connected'], 
   id       : <'the App/courier id'>,
   name     : <'the App user name'>,
-  position : {
+  location : {
     latitude  : <'latitude'>,
-    longitude : <'longitude'>
+    longitude : <'longitude'>,
+    [accuracy  : <'The accuracy'>], //Optional
+    [speed  : <'The speed'>] //Optional
   }
 }
 ```
@@ -101,9 +103,11 @@ and registering the server in the _Middleware_ connections.
   info    : {
     id       :  <'the App/courier id'>,
     name     :  <'the App user name'>,
-    position : {
+    location : {
       latitude  : <'latitude'>,
-      longitude : <'longitude'>
+      longitude : <'longitude'>,
+      [accuracy  : <'The accuracy'>], //Optional
+      [speed  : <'The speed'>] //Optional
     }
   }
 }
@@ -114,9 +118,11 @@ and registering the server in the _Middleware_ connections.
 {
   id       :  <'the App/courier id'>,
   name     :  <'the App user name'>,
-  position : {
+  location : {
     latitude  : <'latitude'>,
-    longitude : <'longitude'>
+    longitude : <'longitude'>,
+    [accuracy  : <'The accuracy'>], //Optional
+    [speed  : <'The speed'>] //Optional
   }
 }
 ```
