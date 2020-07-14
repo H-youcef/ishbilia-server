@@ -8,16 +8,21 @@ class Tea{
     this.UNSUGAR = 0xC6EF3720;
     this.S = [];
 
+    this.hasKey = false;
+
     if(key == null || !key){
-      throw new Error('Invalid key: Key was null');;
+      console.log('Invalid key: Key was null');
+      return;
     }
 
     if(typeof(key) !== typeof("")){
-      throw new Error('Invalid key: Key was not a string');;
+      console.log('Invalid key: Key was not a string');
+      return;
     }
 
     if(key.length < 32){
-      throw new Error('Invalid key: Length was less than 32');
+      console.log('Invalid key: Length was less than 32');
+      return;
     }
     
     let off = 0;
@@ -33,7 +38,8 @@ class Tea{
 			((bytesArr[off++] & 0xff) <<  8) |
 			((bytesArr[off++] & 0xff) << 16) |
 			((bytesArr[off++] & 0xff) << 24);
-		}
+    }
+    this.hasKey = true;
   }
 
   // getBytesArray(str){
@@ -116,6 +122,10 @@ class Tea{
   }
 
   encrypt(clearStr) {
+    if(this.hasKey === false){
+      console.log("Tea encrypt: does not have a key to encrypt, returning data as it is");
+      return clearStr;
+    }
     var clear = this.toBytesArray(clearStr);
     var paddedSize = Math.floor( (clear.length / 8) + ( (clear.length % 8) === 0 ? 0 : 1)) * 2;
     var buffer = [];
@@ -128,6 +138,11 @@ class Tea{
   }
   
   decrypt(crypt) {
+    if(this.hasKey === false){
+      console.log("Tea decrypt: does not have a key to decrypt, returning data as it is");
+      return crypt;
+    }
+
     if(crypt.length % 4 !== 0){
       throw new Error("decrypt: Bad arg");
     }

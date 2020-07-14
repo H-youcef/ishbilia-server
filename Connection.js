@@ -6,13 +6,16 @@
 // --* A Server can ask for a list of connected Couriers.
 /// --* Use the ping-pong mechanism to check the connection status of the servers and/or couriers.
 /// --* The couriers MUST be aware of the existence or non existence of a Server.
-/// * A Server can send data to any Courier.
-/// * Add support for 2 types of Servers (DB-SERVER, OBSERVER-SERVER). so that data requests from couriers are to be forwarded to one of the DB-SERVER(s).
+/// * A Server can send data to any Courier using db id.
 
 
 const couriersConns = [];
 const serversConns = [];
 const PING_MAX_FAILS = process.env['PING_MAX_FAILS'] || 3
+
+
+const Tea = require("./Tea");
+const tea = new Tea(process.env['TEA_ENCRYPTION_KEY']);
 
 class Connection{
 
@@ -50,7 +53,14 @@ class Connection{
 	}
 
 	send(toStringify){
-		this.ws.send(JSON.stringify(toStringify));
+		try {
+			const clearMessage = JSON.stringify(toStringify);
+			const encMessage = tea.encrypt(clearMessage);
+			this.ws.send(encMessage);
+		} catch (error) {
+			console.log("Not sending message due to Error while encrypting message: ", error.message);
+		}
+		
 	}
 	sendCouriersInfos(){
 		for(let i = 0; i < couriersConns.length; ++i){
@@ -129,9 +139,25 @@ ping() {
 	}
 
 	handleMessage(message){
+		let clearMessage;
+		try {
+			clearMessage = tea.decrypt(message);	
+		} catch (error) {
+			console.log("Terminating connection due to Error while decrypting message: ", error.message);
+			if(this.id !== 0){
+				//if this is a Registred connection either (SERVER or COURIER)
+				// reply with error message.
+				this.send({type:"error", value: "bad-data"});
+			}else{
+				// if not a Registred connection, terminate the connection.
+				this.ws.terminate();
+			}
+			return;
+		}
+		
 		let jsonMessage = {};
 		try {
-			jsonMessage = JSON.parse(message);
+			jsonMessage = JSON.parse(clearMessage);
 		}catch (e) {
 			if(this.id !== 0){
 				//if this is a Registred connection either (SERVER or COURIER)
