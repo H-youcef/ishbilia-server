@@ -8,12 +8,12 @@ const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: process.env.PORT || 3000 , host: "0.0.0.0"});
 const Connection = require("./Connection.js");
 
-dbManager.connect(function(error){
+dbManager.connect((error) => {
   if(error){
     console.log("Failed to connect to Database server: ", error.message);
     throw error;
   }
-  console.log("Staring WebSocket Server...");
+  console.log("Starting WebSocket Server...");
 
   wss.on("listening", ()=>{
     console.log("The server is running.");
@@ -21,7 +21,7 @@ dbManager.connect(function(error){
 
   wss.on('connection', function connection(ws, request) {
     console.log("New Connection")
-    const newConnection = new Connection(ws);
+    const newConnection = new Connection(ws, dbManager);
   });
 
 });

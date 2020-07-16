@@ -44,7 +44,7 @@ class DbManager{
    * __callback example: function(error, doc){}__
    * @param {String} username The username of the login 
    * @param {String} password The password of the login
-   * @param {Callback} callback called with the result.
+   * @param {Callback} callback called with the result __eg: function(error, doc){}__.
    */
   getLoginByUsernameAndPassword(username, password, callback){
     this.loginsCollection 
