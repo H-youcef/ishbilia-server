@@ -32,7 +32,8 @@ class Connection{
 
 		// Life check of the webSocket (ws)
 		this.ws.isAlive = true;
-		this.ws.on('pong', () => this.handlePong());
+		this.ws.on('pong', () => this.setToAlive());
+		this.ws.on('ping', () => this.setToAlive());
 
 
 		//If a client does not authenticate within 1sec, the socket gets closed.
@@ -116,7 +117,7 @@ ping() {
 		couriersConns.forEach(sendPing);
 	}
 
-	handlePong(){
+	setToAlive(){
 		this.ws.isAlive = true;
 		this.ping_fails = 0;
 	}
@@ -197,7 +198,7 @@ ping() {
 		}
 		
 		//Since we received a message and parsed well, the we are sure that the socket is alive.
-		this.ws.isAlive = true;
+		this.setToAlive();
 		
 		// (this.id === null) The client is not logged in
 		if(this.id === null){
