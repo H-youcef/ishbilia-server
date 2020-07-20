@@ -10,7 +10,6 @@ const { Binary } = require("mongodb");
 const { json } = require("express");
 const tea = new Tea(process.env['TEA_ENCRYPTION_KEY']);
 
-
 const couriersConns = [];
 const coordinatorsConns = [];
 const trackersConns = [];
@@ -24,6 +23,8 @@ class Connection{
 		this.roles=null;
 		this.status = 'offline';
 		this.type = ''; //Determined by the api_key
+		this.password_changed = 'false';
+		this.enabled = 'true';
 		this.location = {};
 		this.lastLocationUpdateTime = 0;
 		this.ping_fails = 0;
@@ -66,34 +67,6 @@ class Connection{
 			console.log("Not sending message due to Error while encrypting message: ", error.message);
 		}
 		
-	}
-	/**
-	 * Sends all courier infos to this websocket.
-	 */
-	sendCouriersInfos(){
-		for(let i = 0; i < couriersConns.length; ++i){
-			this.send(couriersConns[i].info);
-		}
-	}
-	
-	/**
-	 * Sends the json object to all Coordinators.
-	 * @param {Object} jsonMessage 
-	 */
-	sendToAllCoordinators(jsonMessage){
-		for(let i = 0; i < coordinatorsConns.length; ++i){
-			coordinatorsConns[i].send(jsonMessage);
-		}
-	}
-
-	/**
-	 * Sends the json object to all couriers.
-	 * @param {Object} jsonMessage 
-	 */
-	sendToAllCouriers(jsonMessage){
-		for(let i = 0; i < couriersConns.length; ++i){
-			couriersConns[i].send(jsonMessage);
-		}
 	}
 
 	/**
@@ -149,7 +122,12 @@ ping() {
 	}
 
 	onSuccessfulLogin(){
-		this.send({type:"reply", cmd:"login", value: "success"});
+		this.send({
+			type:"reply",
+			cmd:"login", 
+			value: "success", 
+			password_changed: this.password_changed
+		});
 	}
 	
 	onFailedLogin(why){
@@ -238,8 +216,11 @@ ping() {
 					
 					this.id    = doc['_id'].toString();
 					this.roles = doc['roles'];
-
-					if(api_key === COORDINATOR_API_KEY){
+					this.password_changed = doc['password_changed'];
+					this.enabled = doc['enabled'];
+					if(this.enabled === "false"){
+						this.onFailedLogin('bad_login');
+					}else if(api_key === COORDINATOR_API_KEY){
 						coordinatorsConns.push(this);
 						this.type = 'COORDINATOR';
 						
@@ -268,6 +249,38 @@ ping() {
 				this.handleCourierMessage(jsonMessage);
 			}
 		}
+	}
+
+	changePassword(newPassword){
+		if(newPassword.length === 0){
+			this.send({
+				type  : 'reply',
+				cmd   : 'change-password',
+				value : 'failed',
+				reason: 'bad_data'
+			});
+		}else{
+			this.dbManager.updatePasswordById(this.id, newPassword, 
+				(error) => {
+					if(error){
+						console.log("Error change-password: ", error.message);
+						this.send({
+							type  : 'reply',
+							cmd   : 'change-password',
+							value : 'failed',
+							reason: 'database_error'
+						});
+					}else{
+						console.log("Success change-password");
+						this.send({
+							type : 'reply', 
+							cmd  : 'change-password',
+							value : 'success'
+						});
+					}
+				});
+		}
+
 	}
 
 	///Coordinator's methods
@@ -314,8 +327,11 @@ ping() {
 
 	handleCoordinatorMessage(jsonMessage){
 		if(jsonMessage['type'] === 'request'){
-			if(jsonMessage['value'] === 'couriers-list'){
+			if(jsonMessage['cmd'] === 'get-couriers-list'){
 				this.sendAllCouriersListWithStatus();
+			}else if(jsonMessage['cmd'] === 'change-password'){
+				const newPassword = jsonMessage['value'];
+				this.changePassword(newPassword);
 			}
 		}
 	}
@@ -387,6 +403,11 @@ ping() {
 				this.location.speed = speed;
 
 			this.broadcastLocationUpdate();
+		}else if(jsonMessage['type'] === 'request'){
+			if(jsonMessage['cmd'] === 'change-password'){
+				const newPassword = jsonMessage['value'];
+				this.changePassword(newPassword);
+			}
 		}
 	}
 }

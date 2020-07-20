@@ -34,12 +34,13 @@ and registering the Coordinator in the _Middleware Server_ connections.
 ##Messages sent by the __Middleware/Server__:
 
 1. This message is sent in case of a successful Authentication/Login by the _Coordinator_ and/or the _App_
-- [x] Implemented.
+- [X] Implemented.
 ```js
 {
   type : 'reply',
   cmd  : 'login',
-  value: 'success'
+  value: 'success',
+  password_changed: ["true" | "false"]
 }
 ```
 2. This message is sent in case of a failed Authentication by the _Coordinator_ and/or the _App_
@@ -122,9 +123,29 @@ and registering the Coordinator in the _Middleware Server_ connections.
   
 }
 ```
+8. This message is sent in case of a successful passord change.
+- [ ] Implemented
+```js
+{
+  type : 'reply', 
+  cmd  : 'change-password',
+  value : 'success'
+}
+```
+
+9. This message is sent in case of a failed password change.
+- [ ] Implemented.
+```js
+{
+  type  : 'reply',
+  cmd   : 'change-password',
+  value : 'failed',
+  reason: [ 'bad_data' | 'database_error']
+}
+```
 
 ##Messages sent by the _Courier's App_:
-- [] Implemented.
+- [X] Implemented.
 1. The login message
 ```js
 {
@@ -138,7 +159,8 @@ and registering the Coordinator in the _Middleware Server_ connections.
 - [ ] Implemented.
 ```js
 {
-  type    : 'logout'
+  type    : 'request',
+  cmd     : 'logout'
 }
 ```
 
@@ -151,5 +173,14 @@ and registering the Coordinator in the _Middleware Server_ connections.
   longitude : <'longitude'>,
   [accuracy : <'The accuracy'>], //Optional
   [speed    : <'The speed'>] //Optional
+}
+```
+4. Isued to the **Server** to change the password to the new one:
+-[ ] implemented.
+```js
+{
+  type    : 'request',
+  cmd     : 'change-password',
+  value   : <"New password">
 }
 ```

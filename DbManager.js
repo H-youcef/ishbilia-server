@@ -49,7 +49,7 @@ class DbManager{
   getLoginByUsernameAndPassword(username, password, callback){
     this.loginsCollection 
     .findOne( {username: username, password: password},
-      { projection: { _id: 1, username: 1, roles: 1}},
+      { projection: { _id: 1, username: 1, roles: 1, password_changed: 1, enabled: 1}},
       (err, doc) => {  
       callback(err, doc);
     });
@@ -123,6 +123,26 @@ class DbManager{
     .toArray((err, docs) => {  
       callback(err, docs);
     });
+  }
+
+  /**
+   * Updates the password of the login with the newPassword.
+   * __callback example: function(error){}__
+   * @param {String} id The id of the login
+   * @param {String} newPassword The new password to set for this login. 
+   * @param {Callback} callback __callback example: function(error){}__ called with the result.
+   */
+  updatePasswordById(id, newPassword, callback){
+    var o_id = new ObjectID(id);
+    this.loginsCollection.updateOne({_id: o_id},
+      {$set: {password: newPassword, password_changed: 'true'}},
+      (error, result)=>{
+        if(result.result.ok !== 1 || result.modifiedCount !== 1){
+          callback(Error("Non updated"));
+        }else{
+          callback(error);
+        }
+      });
   }
 
 }
