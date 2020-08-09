@@ -27,7 +27,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 ```js
 {
   type  : 'request',
-  value : 'couriers-list'
+  cmd   : 'get-couriers-list'
 }
 ```
 
@@ -40,7 +40,8 @@ and registering the Coordinator in the _Middleware Server_ connections.
   type : 'reply',
   cmd  : 'login',
   value: 'success',
-  password_changed: ["true" | "false"]
+  password_changed: ["true" | "false"],
+  id   : <'Db id'>
 }
 ```
 2. This message is sent in case of a failed Authentication by the _Coordinator_ and/or the _App_
@@ -85,7 +86,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 }
 ```
 
-6. A courier status update Sent to **Coordinators** or **Trackers** 
+6. A courier status update Sent to **Coordinators** or **Trackers** (To be removed)
 - [x] Implemented.
 ```js
 {
@@ -101,7 +102,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 }
 ```
 
-7. All Couriers list with there status Sent to **Coordinators** or **Trackers** 
+7. All Couriers list with there status Sent to **Coordinators** or **Trackers** (To be removed)
 - [x] Implemented.
 ```js
 {
@@ -124,7 +125,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 }
 ```
 8. This message is sent in case of a successful passord change.
-- [ ] Implemented
+- [x] Implemented
 ```js
 {
   type : 'reply', 
@@ -134,7 +135,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 ```
 
 9. This message is sent in case of a failed password change.
-- [ ] Implemented.
+- [x] Implemented.
 ```js
 {
   type  : 'reply',
@@ -143,10 +144,49 @@ and registering the Coordinator in the _Middleware Server_ connections.
   reason: [ 'bad_data' | 'database_error']
 }
 ```
+10. This message is sent in case of a new "goto" task is inserted in the db.
+- [x] Implemented.
+```js
+{
+  type  : 'goto-update',
+  cmd   : 'insert',
+  'goto': {<goto object>} 
+}
+```
+
+11. This message is sent in case of a new "goto" task is updated or replaced in the db.
+- [x] Implemented.
+```js
+{
+  type  : 'goto-update',
+  cmd   : 'update',
+  'goto': {<goto object>} 
+}
+```
+12. This message is sent in case of a new "goto" task is deleted from the db.
+- [x] Implemented. (At the moment this message is broadcasted to all couriers since we don't 
+                    know the corresponding "courier id").
+```js
+{
+  type  : 'goto-update',
+  cmd   : 'delete',
+  goto_id: <_id>
+}
+```
+12. This message is sent when a courier connects, it contains a list of pending "gotos".
+- [ ] Implemented.
+```js
+{
+  type  : 'goto-update',
+  cmd   : 'goto-list',
+  'goto_list': [{<goto object>}, ...] 
+}
+```
+
 
 ##Messages sent by the _Courier's App_:
-- [X] Implemented.
 1. The login message
+- [X] Implemented.
 ```js
 {
   type    : 'login',
@@ -182,5 +222,28 @@ and registering the Coordinator in the _Middleware Server_ connections.
   type    : 'request',
   cmd     : 'change-password',
   value   : <"New password">
+}
+```
+5. Isued to the **Server** to change status of the goto:
+-[ ] implemented.
+```js
+{
+  type    : 'goto-update',
+  cmd     : 'status-update',
+  goto_id : <'goto id'>
+  value   : <"New status">
+}
+```
+
+6. Isued to the **Server** to update the location of the goto:
+-[ ] implemented.
+```js
+{
+  type     : 'goto-update',
+  cmd      : 'location-update',
+  goto_id  : <'goto id'>
+  latitude : <'latitude'>
+  longitude: <'longitude'>
+  accuracy : <'accuracy'>
 }
 ```

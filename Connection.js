@@ -1,5 +1,6 @@
 
 //TODO: read the doc/README.md for the protocol implementation.
+//TODO: add object/class that reacts to db change_stream eg: if login is disabled it closes its connection.
 
 const PING_MAX_FAILS = process.env['PING_MAX_FAILS'] || 3;
 const COORDINATOR_API_KEY = process.env['COORDINATOR_API_KEY'];
@@ -10,14 +11,82 @@ const { Binary } = require("mongodb");
 const { json } = require("express");
 const tea = new Tea(process.env['TEA_ENCRYPTION_KEY']);
 
+const LoginsDbCollection = require('./LoginsdDbCollection');
+const GotosdDbCollection = require("./gotosDbCollection");
+let loginsDbCollection = null;
+let gotosDbCollection = null;
+
+/**
+ * Initializes Database collections
+ * @param {MongoClient} dbClient the client used to initialize the collection's connections. 
+ */
+async function initDbCollections(dbClient) {
+
+		loginsDbCollection = new LoginsDbCollection(dbClient);
+
+		loginsDbCollection.updateConnectionStateForAll("offline", (err) => {
+			if(err){
+				console.log("Error setting all connection_state's to offline: ", err.message);
+			}
+		});
+
+		//Connect gotosDbCollection
+		gotosDbCollection = new GotosdDbCollection(dbClient);
+		gotosDbCollection.updateEventHandler = onGotosCollectionUpdated;
+		gotosDbCollection.insertEventHandler = onGotosCollectionInserted;
+		gotosDbCollection.deleteEventHandler = onGotosCollectionDeleted;
+
+}
+
+function onGotosCollectionUpdated(oid, doc){
+	const JsonObject = {
+		type  : 'goto-update',
+		cmd   : 'update',
+		goto  : doc 
+	};
+	const courierId = doc['courier_id'].toString();
+	for(let i = 0; i < couriersConns.length; ++i){
+		if(couriersConns[i].id ===  courierId){
+			couriersConns[i].send(JsonObject);
+			break;
+		}
+	}
+}
+function onGotosCollectionInserted(oid, doc){
+	const JsonObject = {
+		type  : 'goto-update',
+		cmd   : 'insert',
+		goto  : doc 
+	};
+	const courierId = doc['courier_id'].toString();
+	for(let i = 0; i < couriersConns.length; ++i){
+		if(couriersConns[i].id === courierId){
+			couriersConns[i].send(JsonObject);
+			break;
+		}
+	}
+}
+function onGotosCollectionDeleted(oid){
+	const JsonObject = {
+		type  : 'goto-update',
+		cmd   : 'delete',
+		goto_id  : oid._id 
+	};
+	//Send the deletion update to all couriers since we don't know how's courier
+	//this goto belongs to.
+	for(let i = 0; i < couriersConns.length; ++i){	
+			couriersConns[i].send(JsonObject);
+	}
+}
+
+
 const couriersConns = [];
 const coordinatorsConns = [];
 const trackersConns = [];
 
 class Connection{
 
-	constructor(ws, dbManager){
-		this.dbManager = dbManager;
+	constructor(ws){
 		this.ws = ws;
 		this.id = null;
 		this.roles=null;
@@ -37,7 +106,7 @@ class Connection{
 		this.ws.on('ping', () => this.setToAlive());
 
 
-		//If a client does not authenticate within 1sec, the socket gets closed.
+		//If a client does not authenticate within 'LOGIN_TIMEOUT', the socket gets closed.
 		this.loginTimeout = setTimeout(()=>{
 			console.log("Closing connection for not login in time")
 			this.ws.terminate();
@@ -95,8 +164,18 @@ ping() {
 		this.ping_fails = 0;
 	}
 
+	/**
+	 * Handles connection close.
+	 */
 	handleClose(){
 	//deletes this Connection object from connections array
+		loginsDbCollection.updateConnectionStateById(this.id, 'offline',
+			(error)=>{
+				if(error){
+					console.log('Error updating connection state to offline for login: ',
+					 this.id, ' ', error.message);
+				}
+			});
 		if(this.type === 'COORDINATOR'){
 			for(let i = 0; i < coordinatorsConns.length; ++i){
 				if(coordinatorsConns[i].id === this.id){
@@ -107,7 +186,7 @@ ping() {
 			
 		}else if(this.type === 'COURIER'){
 			this.status = "offline";
-			this.broadcastStatus();
+			//this.broadcastStatus();
 			for(let i = 0; i < couriersConns.length; ++i){
 				if(couriersConns[i].id === this.id){
 					couriersConns.splice(i, 1);
@@ -121,15 +200,32 @@ ping() {
 		console.log("Connection closed");
 	}
 
+
+	/**
+	 * Called on successful login.
+	 */
 	onSuccessfulLogin(){
 		this.send({
 			type:"reply",
 			cmd:"login", 
 			value: "success", 
-			password_changed: this.password_changed
+			password_changed: this.password_changed,
+			id: this.id
 		});
+		//Sets the connection_state in the Database to to online 
+		loginsDbCollection.updateConnectionStateById(this.id, this.status,
+			(error)=>{
+				if(error){
+					console.log('Error updating connection_state: ', error.message);
+				}
+			});
 	}
-	
+
+	/**
+	 * Called upon failed login.
+	 * @param {string} why If supplied, it is sent as an error string for why the login failed,
+	 * 										 'Unknown reason' is sent other wise.
+	 */
 	onFailedLogin(why){
 		const reason = why ? why : 'Unknown reason';
 		console.log(`The new connection failed due to ${reason}`);
@@ -138,7 +234,7 @@ ping() {
 	}
 	/**
 	 * Called when a new message arrives.
-	 * @param {Binary} message 
+	 * @param {Binary} message The received message.
 	 */
 	handleMessage(message){
 		let clearMessage;
@@ -149,11 +245,11 @@ ping() {
 		} catch (error) {
 			console.log("Terminating connection due to Error while decrypting message: ", error.message);
 			if(this.id !== null){
-				//if this is a Registred connection either (COORDINATOR or COURIER)
+				//if this is a Registered connection either (COORDINATOR or COURIER)
 				// reply with error message.
 				this.send({type:"error", value: "bad-data"});
 			}else{
-				// if not a Registred connection, terminate the connection.
+				// if not a Registered connection, terminate the connection.
 				this.ws.terminate();
 			}
 			return;
@@ -202,7 +298,7 @@ ping() {
 			}
 			clearTimeout(this.loginTimeout);
 
-			this.dbManager.getLoginByUsernameAndPassword(username, password, 
+			loginsDbCollection.getLoginByUsernameAndPassword(username, password, 
 				(error, doc) => {
 					if(error){
 						console.log('Error fetching username and password from Db: ', error.message);
@@ -223,12 +319,12 @@ ping() {
 					}else if(api_key === COORDINATOR_API_KEY){
 						coordinatorsConns.push(this);
 						this.type = 'COORDINATOR';
-						
+						this.status = "online";
 						console.log("new coordinator id: ", this.id);
 						//Don't put this function call outside if scope since it should be called first.
 						this.onSuccessfulLogin();
-						this.sendAllCouriersListWithStatus();
-
+						this.sendAllCouriersNewLocations();
+						
 					}else if(api_key === COURIER_API_KEY){
 						couriersConns.push(this);
 						this.type = 'COURIER';
@@ -236,9 +332,10 @@ ping() {
 						console.log("new courier id: ", this.id);
 						//Don't put this function call outside if scope since it should be called first.
 						this.onSuccessfulLogin();
-						this.broadcastStatus();
+						this.sendRecentPendingGotos();
+						// this.broadcastStatus();
+						
 					}
-					
 			});
 
 		}else{
@@ -260,7 +357,7 @@ ping() {
 				reason: 'bad_data'
 			});
 		}else{
-			this.dbManager.updatePasswordById(this.id, newPassword, 
+			loginsDbCollection.updatePasswordById(this.id, newPassword, 
 				(error) => {
 					if(error){
 						console.log("Error change-password: ", error.message);
@@ -285,8 +382,36 @@ ping() {
 
 	///Coordinator's methods
 
+	//TODO: needs test
+	/**
+	 * Send recent couriers locations updates to this coordinator.
+	 */
+	sendAllCouriersNewLocations(){
+		for(let i = 0; i < couriersConns.length; ++i){
+				if(couriersConns[i].status === 'online'){
+					const durationSinceLastLocationUpdate = ( (Date.now() / 1000) - couriersConns[i].lastLocationUpdateTime);
+					if ( durationSinceLastLocationUpdate <= 60){
+						const locationUpdateObject = {
+							type       : 'location-update',
+							courier_id : couriersConns[i].id,
+							latitude   : couriersConns[i].location.latitude,
+							longitude  : couriersConns[i].location.longitude,
+							accuracy   : couriersConns[i].location.accuracy, 
+							speed      : couriersConns[i].location.speed
+						};
+						this.send(locationUpdateObject);
+					}		
+				}		
+		}
+	}
+
+	/**
+	 * Sends all couriers status to this coordinator.
+	 * note: This function is to be removed, the coordinator app retrieves status information,
+	 * 			 directly from the database.
+	 */
 	sendAllCouriersListWithStatus(){
-		this.dbManager.getAllCourierLogins((error, docs)=>{
+		loginsDbCollection.getAllCourierLogins((error, docs)=>{
 			if(error){
 				console.log("Error while getting Db logins: ", error.message);
 				return;
@@ -339,6 +464,26 @@ ping() {
 
 	/// Courier methods
 
+	sendRecentPendingGotos(){
+		gotosDbCollection.getRecentPendingGotosByCourierId(this.id,
+			(error, docs)=>{
+				if(error){
+					console.log("Error while getting recent pending gotos: ", error.message);
+					return;
+				}
+				if(docs.length === 0) return;
+				const jsonObject = {
+					type  : 'goto-update',
+					cmd   : 'goto-list',
+					goto_list: docs
+				}
+				this.send(jsonObject);
+			});
+	}
+
+	/**
+	 * Note: to be removed
+	 */
 	broadcastStatus(){
 		let statusObject = {
 			type: 'courier-status-update',
@@ -412,4 +557,7 @@ ping() {
 	}
 }
 
-module.exports = Connection;
+module.exports = {
+	Connection : Connection,
+	initDbCollections: initDbCollections
+} ;

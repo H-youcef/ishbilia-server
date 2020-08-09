@@ -1,31 +1,17 @@
 const ObjectID = require('mongodb').ObjectID;
 const MongoClient = require('mongodb').MongoClient;
 
-class DbManager{
-  constructor(){
-    //TODO: set it to env var.
-    const dbUsername = process.env['ATLAS_DB_USERNAME'];
-    const dbPassword = process.env['ATLAS_DB_PASSWORD'];
-    const uri = `mongodb+srv://${dbUsername}:${dbPassword}@cluster-ishbilia.oskgm.mongodb.net?retryWrites=true&w=majority&tls=true`;  
-    this.client = new MongoClient(uri, { useUnifiedTopology: true, tls: true});
-    this.loginsCollection = null;
-  }
+class LoginsdDbCollection{
+
   /**
-   * Connects to the _Db server_ and calls the callback upon finishing.
-   * __Eg: callback(error)__
-   * @param {Callback} callback called with an error arg in case of an error. 
+   * 
+   * @param {MongoClient} dbClient 
    */
-  connect(callback){
-    this.client.connect( err => {
-        if(!err){
-          //TODO: set it to env var.
-          const dbName = process.env['ATLAS_DB_NAME'];
-          const loginsCollectionName = "logins";
-          this.loginsCollection = this.client.db(dbName).collection(loginsCollectionName);
-        }  
-        callback(err)
-      }
-    );
+  constructor(dbClient){
+    this.client = dbClient;
+    const dbName = process.env['ATLAS_DB_NAME'];
+    const loginsCollectionName = "logins";
+    this.loginsCollection = this.client.db(dbName).collection(loginsCollectionName);
   }
 
   /**
@@ -145,6 +131,44 @@ class DbManager{
       });
   }
 
+  /**
+   * Updates the ConnectionState ("online" or "offline") of the login with the newConnectionState .
+   * __callback example: function(error){}__
+   * @param {String} id The id of the login
+   * @param {String} newConnectionState The new ConnectionState to set for this login. 
+   * @param {Callback} callback __callback example: function(error){}__ called with the result.
+   */
+  updateConnectionStateById(id, newConnectionState, callback){
+    var o_id = new ObjectID(id);
+    this.loginsCollection.updateOne({_id: o_id},
+      {$set: {connection_state: newConnectionState}},
+      (error, result)=>{
+        if(result.result.ok !== 1 || result.modifiedCount !== 1){
+          callback(Error("Non updated"));
+        }else{
+          callback(error);
+        }
+      });
+  }
+
+  /**
+   * Updates the ConnectionState ("online" or "offline") of the login with the newConnectionState .
+   * __callback example: function(error){}__
+   * @param {String} id The id of the login
+   * @param {String} newConnectionState The new ConnectionState to set for this login. 
+   * @param {Callback} callback __callback example: function(error){}__ called with the result.
+   */
+  updateConnectionStateForAll(newConnectionState, callback){
+    this.loginsCollection.updateMany({},
+      {$set: {connection_state: newConnectionState}},
+      (error, result)=>{
+        if(result.result.ok !== 1 || result.modifiedCount === 0){
+          callback(Error("Non updated"));
+        }else{
+          callback(error);
+        }
+      });
+  }
 }
 
-module.exports = DbManager;
+module.exports = LoginsdDbCollection;
