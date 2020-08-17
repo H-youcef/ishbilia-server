@@ -473,7 +473,7 @@ ping() {
 				}
 				if(docs.length === 0) return;
 				const jsonObject = {
-					type  : 'goto-update',
+					type  : 'reply',
 					cmd   : 'goto-list',
 					goto_list: docs
 				}
