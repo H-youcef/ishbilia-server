@@ -177,7 +177,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 - [ ] Implemented.
 ```js
 {
-  type  : 'goto-update',
+  type  : 'reply',
   cmd   : 'goto-list',
   'goto_list': [{<goto object>}, ...] 
 }
@@ -245,5 +245,14 @@ and registering the Coordinator in the _Middleware Server_ connections.
   latitude : <'latitude'>
   longitude: <'longitude'>
   accuracy : <'accuracy'>
+}
+```
+
+7. Isued to the **Server** to change to get the available gotos list:
+-[x] implemented.
+```js
+{
+  type    : 'request',
+  cmd     : 'goto-list'
 }
 ```

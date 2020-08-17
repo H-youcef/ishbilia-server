@@ -332,7 +332,7 @@ ping() {
 						console.log("new courier id: ", this.id);
 						//Don't put this function call outside if scope since it should be called first.
 						this.onSuccessfulLogin();
-						this.sendRecentPendingGotos();
+						//this.sendRecentPendingGotos();
 						// this.broadcastStatus();
 						
 					}
@@ -552,6 +552,8 @@ ping() {
 			if(jsonMessage['cmd'] === 'change-password'){
 				const newPassword = jsonMessage['value'];
 				this.changePassword(newPassword);
+			}else if(jsonMessage['cmd'] === 'goto-list'){
+				this.sendRecentPendingGotos();
 			}
 		}
 	}
