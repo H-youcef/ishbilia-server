@@ -236,7 +236,7 @@ and registering the Coordinator in the _Middleware Server_ connections.
 ```
 
 6. Isued to the **Server** to update the location of the goto:
--[ ] implemented.
+-[x] implemented.
 ```js
 {
   type     : 'goto-update',
@@ -244,7 +244,6 @@ and registering the Coordinator in the _Middleware Server_ connections.
   goto_id  : <'goto id'>
   latitude : <'latitude'>
   longitude: <'longitude'>
-  accuracy : <'accuracy'>
 }
 ```
 
@@ -254,5 +253,15 @@ and registering the Coordinator in the _Middleware Server_ connections.
 {
   type    : 'request',
   cmd     : 'goto-list'
+}
+```
+
+8. Isued to the **Server** to set Goto as seen by the courier:
+-[x] implemented.
+```js
+{
+  type     : 'goto-update',
+  cmd      : 'seen-by-courier',
+  goto_id  : <'goto id'>
 }
 ```

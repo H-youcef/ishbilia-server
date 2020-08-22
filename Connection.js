@@ -555,6 +555,24 @@ ping() {
 			}else if(jsonMessage['cmd'] === 'goto-list'){
 				this.sendRecentPendingGotos();
 			}
+		}else if(jsonMessage['type'] === 'goto-update'){
+			if(jsonMessage['cmd'] === 'location-update'){
+				
+				const gotoId = jsonMessage['goto_id'];
+				const latitude = jsonMessage['latitude'];
+				const longitude = jsonMessage['longitude'];
+				const accuracy = '0';
+
+				gotosDbCollection.updateLocationById(gotoId, latitude, longitude, accuracy, (error)=>{
+					if(error) console.log("Error updating location for goto: ", error.message);
+				});
+
+			}else if(jsonMessage['cmd'] === 'seen-by-courier'){
+				const gotoId = jsonMessage['goto_id'];
+				gotosDbCollection.updateSeenById(gotoId, true, (error)=>{
+					if(error) console.log("Error updating seen_by_courier field: ", error.message);
+				});
+			}
 		}
 	}
 }

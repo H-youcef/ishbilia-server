@@ -17,10 +17,11 @@ class GotosdDbCollection{
     this.insertEventHandler = null;
     this.deleteEventHandler = null;
 
-    this.gotosChangeStream = this.gotosCollection.watch();
+    this.gotosChangeStream = this.gotosCollection.watch({ fullDocument: 'updateLookup' });
     this.gotosChangeStream.on('change', next => {
       const operationType = next['operationType'];
       const documentKey = next['documentKey'];
+
       if(operationType === 'delete' && this.deleteEventHandler){
         this.deleteEventHandler(documentKey)
       }else if(operationType === 'insert' && this.insertEventHandler){
@@ -52,6 +53,26 @@ class GotosdDbCollection{
     var o_id = new ObjectID(id);
     this.gotosCollection.updateOne({_id: o_id},
       {$set: {status: newStatus}},
+      (error, result)=>{
+        if(result.result.ok !== 1 || result.modifiedCount !== 1){
+          callback(Error("Non updated"));
+        }else{
+          callback(error);
+        }
+      });
+  }
+
+  /**
+   * Updates the Seen by courier field.
+   * __callback example: function(error){}__
+   * @param {String} id The id of the goto
+   * @param {Boolean} seen The new seen status (true or false) to set for this goto. 
+   * @param {Callback} callback __callback example: function(error){}__ called with the result.
+   */
+  updateSeenById(id, seen, callback){
+    var o_id = new ObjectID(id);
+    this.gotosCollection.updateOne({_id: o_id},
+      {$set: {seen_by_courier: seen}},
       (error, result)=>{
         if(result.result.ok !== 1 || result.modifiedCount !== 1){
           callback(Error("Non updated"));
