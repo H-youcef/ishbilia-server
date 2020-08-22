@@ -117,6 +117,15 @@ class GotosdDbCollection{
       callback(err, docs);
     });
   }
+
+  getGotoById(id, callback){
+    var o_id = new ObjectID(id);
+    this.gotosCollection 
+    .findOne( {_id: o_id},
+      (err, doc) => {  
+      callback(err, doc);
+    });
+  }
 }
 
 module.exports = GotosdDbCollection;

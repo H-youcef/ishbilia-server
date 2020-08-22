@@ -13,8 +13,11 @@ const tea = new Tea(process.env['TEA_ENCRYPTION_KEY']);
 
 const LoginsDbCollection = require('./LoginsdDbCollection');
 const GotosdDbCollection = require("./gotosDbCollection");
+const ClientsLocationsDbCollection = require("./clientsLocationsDbCollection");
+
 let loginsDbCollection = null;
 let gotosDbCollection = null;
+let clientsLocationsDbCollection = null;
 
 /**
  * Initializes Database collections
@@ -29,6 +32,8 @@ async function initDbCollections(dbClient) {
 				console.log("Error setting all connection_state's to offline: ", err.message);
 			}
 		});
+
+		clientsLocationsDbCollection = new ClientsLocationsDbCollection(dbClient);
 
 		//Connect gotosDbCollection
 		gotosDbCollection = new GotosdDbCollection(dbClient);
@@ -566,6 +571,21 @@ ping() {
 				gotosDbCollection.updateLocationById(gotoId, latitude, longitude, accuracy, (error)=>{
 					if(error) console.log("Error updating location for goto: ", error.message);
 				});
+				
+				gotosDbCollection.getGotoById(gotoId, (err, doc)=>{
+					if(err){
+						console.log("Error getting goto by id: ", err.message);
+						return;
+					}
+					const phoneNumber = doc['phone'];
+					clientsLocationsDbCollection.updateLocationByPhoneNumber(phoneNumber, latitude,
+						 longitude, accuracy, (error)=>{
+							if(err){
+								console.log("Error client location: ", error.message);
+							}
+						 });
+				});
+
 
 			}else if(jsonMessage['cmd'] === 'seen-by-courier'){
 				const gotoId = jsonMessage['goto_id'];
